@@ -133,7 +133,6 @@ func (c *Client) runWithJSON(ctx context.Context, req *Request, resp interface{}
 		return errors.Wrap(err, "reading body")
 	}
 	c.logf("<< %s", buf.String())
-	fmt.Println(buf.String())
 	if err := json.NewDecoder(&buf).Decode(&gr); err != nil {
 		return errors.Wrap(err, "decoding response")
 	}
@@ -232,33 +231,46 @@ func UseMultipartForm() ClientOption {
 // modify the behaviour of the Client.
 type ClientOption func(*Client)
 
-type graphErr struct {
+type GraphErr struct {
 	Message    string
 	Path       []string
-	Extensions graphErrExtensions
+	Extensions GraphErrExtensions
 }
 
-type graphErrExtensions struct {
-	Details    graphErrExtensionDetails
+func (gerr *GraphErr) StatusCode() (int, error) {
+  statusCode := gerr.Extensions.StatusCode
+  if statusCode == 0 {
+    return 0, errors.New("No HTTP status code reported")
+  } else {
+    return statusCode, nil
+  }
+}
+
+func (gerr *GraphErr) Details() (GraphErrExtensionDetails) {
+  return gerr.Extensions.Details
+}
+
+type GraphErrExtensions struct {
+	Details    GraphErrExtensionDetails
 	StatusCode int
 }
 
-type graphErrExtensionDetails struct {
-	Error graphErrExtensionDetailsError
+type GraphErrExtensionDetails struct {
+  Error GraphErrExtensionDetailsError `json:"error"`
 }
 
-type graphErrExtensionDetailsError struct {
-	Message string
-	Type    string
+type GraphErrExtensionDetailsError struct {
+  Message string `json:"message"`
+  Type    string `json:"type"`
 }
 
-func (e graphErr) Error() string {
+func (e GraphErr) Error() string {
 	return "graphql: " + e.Message
 }
 
 type graphResponse struct {
 	Data   interface{}
-	Errors []graphErr
+	Errors []GraphErr
 }
 
 // Request is a GraphQL request.
